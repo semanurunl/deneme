@@ -1,0 +1,802 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Mon Sep  8 15:38:09 2025
+
+@author: A11003
+"""
+
+
+# -*- coding: utf-8 -*-
+"""
+Created on Mon Aug 18 16:56:33 2025
+
+@author: T24115
+"""
+
+# -*- coding: utf-8 -*-
+"""
+Created on Tue Aug 12 14:27:45 2025
+
+@author: t31917
+"""
+import pandas as pd
+pd.set_option('display.max_columns', None)
+
+import pyodbc
+import numpy as np
+import tkinter as tk
+from tkinter import ttk, filedialog
+
+import base64
+import os
+import time
+# ---- performans: gereksiz kopyaları azalt
+try:
+    pd.options.mode.copy_on_write = True
+except Exception:
+    pass
+
+# from os import path
+
+# =====================
+# DB yardımcıları
+# =====================
+
+def get_connection():
+    """
+    Tek bağlantı üstünden temp table (#PARTS) oluşturup kullanabilmek için
+    ayrı bir yardımcı: aynı connection üzerinde tüm SQL işlemleri yürütülür.
+    """
+    con = pyodbc.connect(r"""Driver={SQL Server};
+                          Server=TAIISDRDB\UDBP;
+                          Database=ReportDB;
+                          UID=tocbi;
+                          PWD=TAIbi,42*;""",
+                         autocommit=True)  # temp tablo & bulk insert kolaylığı
+    return con
+
+def connection_conf(SQL):
+    """
+    Kısa tek atımlık sorgular için (temp table gerektirmeyen).
+    """
+    con = get_connection()
+    try:
+        df = pd.read_sql(SQL, con)
+    finally:
+        con.close()
+    return df
+
+def query_with_parts(material_nos, sql_body):
+    """
+    material_nos listesini #PARTS temp tablosuna hızlıca yazar,
+    ardından verilen sql_body'yi çalıştırıp DataFrame döndürür.
+    sql_body içinde #PARTS (kolon: PARTNO) tablosuna join edebilirsin.
+    """
+    con = get_connection()
+    try:
+        cur = con.cursor()
+        # Temp tabloyu oluştur
+        cur.execute("IF OBJECT_ID('tempdb..#PARTS') IS NOT NULL DROP TABLE #PARTS;")
+        cur.execute("CREATE TABLE #PARTS (PARTNO NVARCHAR(100) NOT NULL);")
+
+        # Fast bulk insert
+        cur.fast_executemany = True
+        data = [(str(p),) for p in material_nos]
+        cur.executemany("INSERT INTO #PARTS (PARTNO) VALUES (?);", data)
+
+        # Sorguyu çalıştır
+        df = pd.read_sql(sql_body, con)
+        return df
+    finally:
+        con.close()
+
+# =====================
+# Yardımcı fonksiyonlar
+# =====================
+
+# Girdi parça numaralarını SQL sorgusunda kullanılacak formata çevirir.
+# (Artık temp table kullandığımız için normalde gerekmez; ama korunuyor.)
+def convertTuple(tup):
+    s = ''
+    for item in tup:
+        s = s + ",'" + item + "'"  
+    return s
+
+def operationTime_metalik(kod,size,tool,material,ws2):
+    i = 1
+    sure = 0 
+    sure1 = 0 
+    sure2 = 0 
+    sure3 = 0 
+    sure4 = 0 
+    sure5 = 0 
+    sure6 = 0
+    sure7 = 0
+    sure8 = 0
+    sure9 = 0
+    flag = True
+    while i<25 and flag == True:
+        if size in ws2.iat[0,i] and tool in ws2.iat[1,i] and material in ws2.iat[2,i]: 
+            k = 4
+            while k<100 and flag == True:
+                if kod != "Finish":
+                    if "Finish" not in ws2.iat[k,0] and ws2.iat[k,0] is not None:
+                        if kod in ws2.iat[k,0]:
+                            if size == "3>m" or str(ws2.iat[k,i]) == "nan": 
+                                sure = ws2.iat[k,i]
+                                sure1 = ws2.iat[k+1,i]
+                                sure2 = ws2.iat[k+2,i]
+                                sure3 = ws2.iat[k+3,i]
+                                sure4 = ws2.iat[k+4,i]
+                                sure5 = ws2.iat[k+5,i]
+                                sure6 = ws2.iat[k+6,i]
+                                sure7 = ws2.iat[k+7,i]
+                                sure8 = ws2.iat[k+8,i]
+                                sure9 = ws2.iat[k+9,i]
+                            else:
+                                sure = str(int(ws2.iat[k,i])+0)
+                                sure1 = str(ws2.iat[k+1,i])
+                                sure2 = str(ws2.iat[k+2,i])
+                                sure3 = str(ws2.iat[k+3,i])
+                                sure4 = str(ws2.iat[k+4,i])
+                                sure5 = str(ws2.iat[k+5,i])
+                                sure6 = str(ws2.iat[k+6,i])
+                                sure7 = str(ws2.iat[k+7,i])
+                                sure8 = str(ws2.iat[k+8,i])
+                                sure9 = str(ws2.iat[k+8,i])
+                            flag = False
+                else:
+                    if kod in ws2.iat[k,0]:
+                        if size == "3>m": 
+                            sure = ws2.iat[k,i]
+                            sure1 = 0
+                            sure2 = 0
+                            sure3 = 0
+                            sure4 = 0
+                            sure5 = 0
+                            sure6 = 0
+                            sure7 = 0
+                            sure8 = 0
+                            sure9 = 0
+                        else:
+                            sure = str(ws2.iat[k,i])
+                            sure1 = 0
+                            sure2 = 0
+                            sure3 = 0
+                            sure4 = 0
+                            sure5 = 0
+                            sure6 = 0
+                            sure7 = 0
+                            sure8 = 0
+                            sure9 = 0
+                        flag = False
+                k += 1
+        elif kod == "Finish": 
+            sure = 2
+            sure1 = 0
+            sure2 = 0
+            sure3 = 0
+            sure4 = 0
+            sure5 = 0
+            sure6 = 0
+            sure7 = 0
+            sure8 = 0
+            sure9 = 0
+            flag = False               
+        i += 1 
+    return sure, sure1, sure2, sure3, sure4, sure5, sure6, sure7, sure8, sure9
+
+def operationTime_comp(kod,ws3):
+    k = 1
+    sure = 0 
+    sure1 = 0 
+    sure2 = 0 
+    sure3 = 0 
+    sure4 = 0 
+    sure5 = 0 
+    sure6 = 0
+    sure7 = 0
+    sure8 = 0
+    sure9 = 0
+    flag = True
+    while k<50 and flag == True:
+        if kod in ws3.iat[k,0]:
+            sure = str(int(ws3.iat[k,1])+2) 
+            sure1 = str(ws3.iat[k+1,1])
+            sure2 = str(ws3.iat[k+2,1])
+            sure3 = str(ws3.iat[k+3,1])
+            sure4 = str(ws3.iat[k+4,1])
+            sure5 = str(ws3.iat[k+5,1])
+            sure6 = str(ws3.iat[k+6,1])
+            sure7 = str(ws3.iat[k+7,1])
+            sure8 = str(ws3.iat[k+8,1])
+            sure9 = str(ws3.iat[k+9,1])
+            flag = False
+        k += 1           
+    return sure, sure1, sure2, sure3, sure4, sure5, sure6, sure7, sure8, sure9
+
+def rota_bul(rota,y49statu,ncstatu,material_no):
+    tur = ""
+    kod = ""
+    # Y49statu == "E" rotadaki bütün tezgahların Y49 müdürlüğüne ait olduğunu göstermektedir.
+    if y49statu == "E": 
+        kod = "Finish"
+        tur = "Metalik"
+
+    # Finish liste kontrol
+    finishlist = ["750","415","422","424","427","776","660:415","660:422","660:424","660:427","647",
+                  "270:415","270:422","270:424","270:427","413","194:411","420:444","420:647","239:411"]
+    for f in finishlist:
+        if f == rota[0:3] or f == rota[0:7]:
+            kod = "Finish"
+            tur = "Metalik"
+
+    # Metalik
+    if "864" in rota:
+        kod = "(S2)"; tur = "Metalik"
+    if rota.startswith("207",0,3) or rota.startswith("211:207",0,7):
+        kod = "Bushing"; tur = "Metalik"
+    if "NS3" in rota or "NS7" in rota:
+        kod= "(S2)"; tur = "Metalik"
+
+    if any(x in rota for x in ["151","12B","120","115"]):
+        if any(x in rota for x in ["214","216","217","219","222","HUR","226","227","232","233","243","251","254","255","256","261","295","299","289"]):
+            kod= "(S16)"
+        else:
+            kod= "(S15)"
+        tur = "Metalik" 
+
+    if any(x in rota for x in ["134","136","139","140"]):
+        kod= "(E10)" if ("551" in rota or "553" in rota) else "(E2)"; tur = "Metalik"
+
+    if ("144" in rota and "194" in rota) or any(x in rota for x in ["206","221","225","231","238","241","245","247","248","270"]):
+        kod= "(M5)"; tur = "Metalik"
+
+    if any(x in rota for x in ["Y61","209","220","201","YM1"]):
+        kod= "(T3)"; tur = "Metalik"
+
+    if any(x in rota for x in ["214","216","217","219","222","HUR","226","227","232","233","243","251","254","255","256","261","295","299","289","Y64","298"]):
+        kod= "(M9)"; tur = "Metalik"
+
+    if "930" in rota:
+        if any(x in rota for x in ["214","216","217","219","222","HUR","226","227","232","233","243","251","254","255","256","261","295","299","289"]):
+            kod= "(MB2)" 
+        else:
+            kod= "(MB1)"
+        tur = "Metalik"
+
+    if any(x in rota for x in ["341","342","348"]):
+        kod= "(TW1)"; tur = "Metalik"
+    if "341" in rota and "342" not in rota:
+        kod= "(TW3)"; tur = "Metalik"
+    if any(x in rota for x in ["307","308","309"]):
+        kod= "Kaynak"; tur = "Metalik"
+    if (("341" in rota or "342" in rota) and any(x in rota for x in ["307","308","309"])):
+        kod = "(TWK)"; tur = "Metalik"
+
+    if kod == "" and ((material_no[-2:] in {"T1","T2","T3","F1","F2","F3"}) or (material_no[-1:] in {"F","T"}) or ("450" in rota)):
+        kod = "First Cut"; tur = "Metalik"
+
+    # Kompozit
+    if "901" in rota or "904" in rota:
+        kod = "Kompozit Core Cut"; tur = "Kompozit"
+
+    if any(x in rota for x in ["RTH","RLY","RTM","RTD"]) or ("938" in rota and "970" in rota):
+        kod= "(CAMB1)"; tur="Kompozit"
+
+    if "912" in rota:
+        count937 = rota.count("937")
+        count9372 = rota.count("937:937")
+        if (count937 - count9372) > 1:
+            kod = "(CAMB2)" if ncstatu == "H" else "(CAMB4)"
+        else:
+            kod = "(CAMB1)" if ncstatu == "H" else "(CAMB3)"
+        tur = "Kompozit"
+
+    if (rota.startswith("951",0,3) or rota.startswith("941",0,3)) and "937" not in rota:
+        kod = "(CAMB5)"; tur = "Kompozit"
+
+    if "930" in rota and tur == "Kompozit":
+        kod = "(MB2)" if ncstatu == "E" else "(MB1)"
+
+    # Harness
+    if "674" in rota:
+        if material_no.startswith("TMS",0,3):
+            kod = "Harness-Etiket"; tur = "Harness"
+        else:
+            kod = "Harness"; tur = "Harness"
+    if any(x in rota for x in ["WCS","SLI","HMS","HMQ","HTC"]):
+        kod = "Harness"; tur = "Harness"
+
+    # YS
+    if "SUB" in rota:
+        kod = "Yardımcı Sanayi"; tur = "Yardımcı Sanayi"
+    
+    return kod, tur
+
+def y49check_unique(rotas, rotaref):
+    """Benzersiz rota listesi için set-tabanlı Y49 kontrolü; dict döndürür."""
+    y49_set = set(str(rotaref["Y49TC"].iloc[0]).split(":"))
+    out = {}
+    for r in rotas:
+        parts = r.split(":")
+        # tüm istasyonlar Y49 içinde ise 'E', aksi halde 'H'
+        out[r] = "E" if all(p in y49_set for p in parts) else "H"
+    return out
+
+def nccheck_unique(rotas, rotaref):
+    """Benzersiz rota listesi için set-tabanlı NC kontrolü; dict döndürür ('E' var, 'H' yok)."""
+    nc_set = set(str(rotaref["Y4BTC"].iloc[0]).split(":"))
+    out = {}
+    for r in rotas:
+        parts = r.split(":")
+        out[r] = "E" if any(p in nc_set for p in parts) else "H"
+    return out
+
+# =====================
+# GUI
+# =====================
+
+class MaterialGUI:
+    def __init__(self, master):
+        start_time = time.time()
+        self.master = master
+        master.title("Havacılık Yapısalları GMY - Katalog Süre Bulucu")
+
+        # Set custom style for widgets
+        self.style = ttk.Style()
+        self.style.configure("TFrame", background="#F0F0F0")
+        self.style.configure("TLabel", background="#F0F0F0", font=("Calibri", 12,"bold"))
+        self.style.configure("Submit.TButton", borderwidth=1, relief="raised", background="#4CAF50",
+                             foreground="#FFFFFF", font=("Calibri", 12, "bold"), pady=5, padx=10)
+        self.style.map("Submit.TButton", background=[("active", "#388E3C")],
+                       relief=[("pressed", "sunken"), ("!pressed", "raised")])
+
+        # Create Copy & Paste Data section
+        self.data_frame = ttk.Frame(master)
+        self.data_frame.pack(side=tk.TOP, padx=20, pady=20)
+
+        self.submit_button = ttk.Button(self.data_frame, style="Bold.TButton",text="Ara", command=self.get_data)
+        self.submit_button.pack(pady=(10, 0))
+        self.clear_button = ttk.Button(self.data_frame, style="Bold.TButton", text="Listeyi Temizle", command=self.clear_data)
+        self.clear_button.pack(pady=(10, 0))
+
+        # Create Results section
+        self.results_frame = ttk.Frame(master)
+        self.results_frame.pack(side=tk.TOP, padx=20, pady=(20, 20))
+
+        self.results_table = ttk.Treeview(self.results_frame, columns=["ID","Parça", "Boyut", "Malzeme", "Takım", "Rota Kodu", "ÜS", "TTİS","TÜİS","CMP","CNV","CPM", "NC1","NC2","NC4","NC5","NC6","PNT","SAS","SM2","SMT", "Diğer","Rota"], show="headings")
+        self.results_table.heading("Parça", text="Parça")
+        self.results_table.heading("Boyut", text="Boyut")
+        self.results_table.heading("Rota Kodu", text="Rota Kodu")
+        self.results_table.heading("Malzeme", text="Malzeme")
+        self.results_table.heading("Takım", text="Takım")
+        self.results_table.heading("ÜS", text="ÜS")
+        self.results_table.heading("TTİS", text="TTİS")
+        self.results_table.heading("TÜİS", text="TÜİS")
+        self.results_table.heading("CMP", text="CMP")
+        self.results_table.heading("CNV", text="CNV")
+        self.results_table.heading("CPM", text="CPM")
+        self.results_table.heading("NC1", text="NC1")
+        self.results_table.heading("NC2", text="NC2")
+        self.results_table.heading("NC4", text="NC4")
+        self.results_table.heading("NC5", text="NC5")
+        self.results_table.heading("NC6", text="NC6")
+        self.results_table.heading("PNT", text="PNT")
+        self.results_table.heading("SAS", text="SAS")
+        self.results_table.heading("SM2", text="SM2")
+        self.results_table.heading("SMT", text="SMT")
+        self.results_table.heading("Diğer", text="Diğer")
+        self.results_table.heading("ID", text="ID")
+        self.results_table.heading("Rota", text="Rota")
+        self.results_table.column("Parça", width=130, anchor="center")
+        self.results_table.column("Boyut", width=75, anchor="center")
+        self.results_table.column("Rota Kodu", width=65, anchor="center")
+        self.results_table.column("Malzeme", width=70, anchor="center")
+        self.results_table.column("Takım", width=55, anchor="center")
+        self.results_table.column("ÜS", width=40, anchor="center")
+        self.results_table.column("TTİS", width=40, anchor="center")
+        self.results_table.column("TÜİS", width=40, anchor="center")
+        self.results_table.column("CMP", width=40, anchor="center")
+        self.results_table.column("CNV", width=40, anchor="center")
+        self.results_table.column("CPM", width=40, anchor="center")
+        self.results_table.column("NC1", width=40, anchor="center")
+        self.results_table.column("NC2", width=40, anchor="center")
+        self.results_table.column("NC4", width=40, anchor="center")
+        self.results_table.column("NC5", width=40, anchor="center")
+        self.results_table.column("NC6", width=40, anchor="center")
+        self.results_table.column("PNT", width=40, anchor="center")
+        self.results_table.column("SAS", width=40, anchor="center")
+        self.results_table.column("SM2", width=40, anchor="center")
+        self.results_table.column("SMT", width=40, anchor="center")
+        self.results_table.column("Diğer", width=55, anchor="center")
+        self.results_table.column("ID", width=25, anchor="center")
+        self.results_table.column("Rota", width=25, anchor="center")
+        self.results_table.pack(pady=(10, 0))
+
+        self.export_button = ttk.Button(self.results_frame, text="Excel Oluştur", command=self.export_results)
+        self.export_button.pack(pady=(10, 0))
+        
+        self.data_frame_2 = ttk.Frame(master)
+        self.data_frame_2.pack(side=tk.RIGHT, padx=10, pady=10)
+        self.data_label_2 = ttk.Label(self.data_frame_2, text=" Y5A90 - Kapasite Değerlendirme ve İş Analitiği ", relief= "solid", font= ("Helvetica 8"))
+        self.data_label_2.pack(anchor=tk.W)
+
+        # Bitiş zamanı ve çalışma süresi
+        end_time = time.time()
+        elapsed_time = end_time - start_time
+        print(f"Toplam çalışma süresi: {elapsed_time:.2f} saniye.")
+        
+    def show_detay_data(self, df_export):
+        # Treeview'ı temizle
+        for item in self.results_table.get_children():
+            self.results_table.delete(item)
+
+        # Kolonları df_export'a göre güncelle
+        self.results_table["columns"] = list(df_export.columns)
+        self.results_table["show"] = "headings"
+        
+        for col in df_export.columns:
+            self.results_table.heading(col, text=col)
+            self.results_table.column(col, width=100, anchor="center")
+        
+        # Tek seferde doldur
+        for _, row in df_export.iterrows():
+            self.results_table.insert("", "end", values=list(row))   
+            
+    def clear_data(self):
+        if hasattr(self, "data_text"):
+            self.data_text.delete("1.0","end")
+
+    def get_data(self):
+        t0 = time.time()
+        # Clear previous results
+        self.results_table.delete(*self.results_table.get_children())
+
+        # === 1) CSV giriş
+        input_path = r'C:\Users\A11003\Desktop\inputbutce2.csv'
+        df_in = pd.read_csv(input_path, delimiter=',', low_memory=False, dtype={'PARCANO':'string'})
+        material_nos = df_in['PARCANO'].dropna().astype(str).str.strip().tolist()
+
+        # === 2) SQL: #PARTS temp tablo + ana sorgu
+        self.data_label_2.config(text = "Parça listesi için Tool/Ebat/Material verileri çekiliyor...")
+        sql_part_details = """
+SET NOCOUNT ON;
+
+-- #PARTS zaten dışarıda oluşturulmuş ve doldurulmuş durumda.
+DROP TABLE IF EXISTS #PARTTOOLS, #MATERIAL, #ROTA, #ATOLKONT;
+
+SELECT DISTINCT PT.PARTNO, 
+    CASE WHEN PT.TOOLNO IS NOT NULL THEN 'TOOLVAR' ELSE 'TOOLYOK' END AS TOOLVARYOK 
+INTO #PARTTOOLS
+FROM EPLN.V_PARTTOOLS_LAST_REV AS PT;
+
+SELECT DISTINCT TRIM(MX.PARTNO) AS PARTNO, MX.WIDTH, MX.LENGTH, MX.MCRECORDNO, MX.UOM 
+INTO #MATERIAL
+FROM EPLN.MATERIAL MX 
+INNER JOIN EPLN.V_HEADER_LAST_REV HX ON MX.PARTNO = HX.PARTNO AND MX.PARTREV = HX.PARTREV 
+WHERE MX.PARTNO NOT LIKE '%***%';
+
+SELECT OP.PARTNO, OP.PARTREV, 
+    STRING_AGG(TRIM(OP.TASKCENTER), ':') WITHIN GROUP (ORDER BY OP.STEPNO ASC) AS ROTA 
+INTO #ROTA
+FROM EPLN.OPS_MASTER_TC_LAST_VALID AS OP 
+WHERE OP.IS_ALTERNATIVE = 0
+GROUP BY OP.PARTNO, OP.PARTREV;
+
+SELECT DISTINCT A.PLANT AS PROJE, TRIM(A.PARCANO) AS PARCANO, T.SINIFI 
+INTO #ATOLKONT 
+FROM ERP.ATOLKONT A 
+INNER JOIN ERP2.TMLZPRJ T ON A.PLANT = T.PROJE AND A.PARCANO = T.MALZEMENO 
+WHERE T.TEMIN_SEKLI IN ('M','N') AND A.INSTR >='2018-01-01';
+
+WITH MAINPART AS (
+    SELECT DISTINCT 
+        CASE WHEN TOOL.TOOLVARYOK IS NOT NULL THEN 'Var' ELSE 'Yok' END AS TOOLVARYOK,
+        CASE 
+            WHEN MC.NOMENCLATURE LIKE '%ALUMINUM%' THEN 'Alüminyum'
+            WHEN MC.NOMENCLATURE LIKE '%TITANIUM%' THEN 'Titanyum'
+            WHEN MC.NOMENCLATURE LIKE '%STEEL%' THEN 'Sert Malzemeler'
+            WHEN LEFT(ROTA.ROTA,3) = '207' AND (MC.NOMENCLATURE IS NULL OR MC.NOMENCLATURE IN ('None','N/A')) THEN 'Alüminyum'
+            ELSE MC.NOMENCLATURE 
+        END AS MALZEMETIPI, 
+        CASE 
+            WHEN M.UOM = 'SI' THEN 
+                CASE 
+                    WHEN MAX(M.WIDTH) > MAX(M.LENGTH) THEN 
+                        CASE 
+                            WHEN MAX(M.WIDTH)*25.4 < 500 THEN '0-0.50 m' 
+                            WHEN MAX(M.WIDTH)*25.4 < 1000 THEN '0.50 m-1 m'
+                            WHEN MAX(M.WIDTH)*25.4 < 3000 THEN '1-3 m'
+                            ELSE '3>m' 
+                        END 
+                    ELSE
+                        CASE 
+                            WHEN MAX(M.LENGTH)*25.4 < 500 THEN '0-0.50 m' 
+                            WHEN MAX(M.LENGTH)*25.4 < 1000 THEN '0.50 m-1 m'
+                            WHEN MAX(M.LENGTH)*25.4 < 3000 THEN '1-3 m'
+                            ELSE '3>m' 
+                        END
+                END
+            ELSE
+                CASE 
+                    WHEN MAX(M.WIDTH) > MAX(M.LENGTH) THEN 
+                        CASE 
+                            WHEN MAX(M.WIDTH) < 500 THEN '0-0.50 m' 
+                            WHEN MAX(M.WIDTH) < 1000 THEN '0.50 m-1 m'
+                            WHEN MAX(M.WIDTH) < 3000 THEN '1-3 m'
+                            ELSE '3>m' 
+                        END 
+                    ELSE
+                        CASE 
+                            WHEN MAX(M.LENGTH) < 500 THEN '0-0.50 m' 
+                            WHEN MAX(M.LENGTH) < 1000 THEN '0.50 m-1 m'
+                            WHEN MAX(M.LENGTH) < 3000 THEN '1-3 m'
+                            ELSE '3>m' 
+                        END
+                END
+        END AS EBATKATEGORI,
+        T.SINIFI AS URETIMTIPI,
+        T.MALZEMENO
+    FROM ERP2.TMLZPRJ T
+    INNER JOIN #PARTS P ON T.MALZEMENO = P.PARTNO
+    LEFT JOIN #MATERIAL AS M ON T.MALZEMENO = M.PARTNO
+    LEFT JOIN EPLN.MATERIALCATALOG MC ON M.MCRECORDNO = MC.MCRECORDNO 
+    LEFT JOIN #PARTTOOLS AS TOOL ON T.MALZEMENO = TOOL.PARTNO
+    INNER JOIN #ROTA AS ROTA ON T.MALZEMENO = ROTA.PARTNO
+    GROUP BY TRIM(T.MALZEMENO), ROTA.PARTREV, ROTA.ROTA, TOOL.TOOLVARYOK, MC.NOMENCLATURE, T.SINIFI, M.UOM, T.PROJE
+),
+
+NEWLIST AS (
+    SELECT DISTINCT 
+        T.PARCANO AS PARTNO, 
+        ROTA.PARTREV,
+        ROTA.ROTA,
+        CASE WHEN TOOL.TOOLVARYOK IS NOT NULL THEN 'Var' ELSE 'Yok' END AS TOOLVARYOK,
+        CASE 
+            WHEN MC.NOMENCLATURE LIKE '%ALUMINUM%' THEN 'Alüminyum'
+            WHEN MC.NOMENCLATURE LIKE '%TITANIUM%' THEN 'Titanyum'
+            WHEN MC.NOMENCLATURE LIKE '%STEEL%' THEN 'Sert Malzemeler'
+            WHEN LEFT(ROTA.ROTA,3) = '207' AND (MC.NOMENCLATURE IS NULL OR MC.NOMENCLATURE IN ('None','N/A')) THEN 'Alüminyum'
+            ELSE MC.NOMENCLATURE 
+        END AS MALZEMETIPI, 
+        CASE 
+            WHEN M.UOM = 'SI' THEN 
+                CASE 
+                    WHEN MAX(M.WIDTH) > MAX(M.LENGTH) THEN 
+                        CASE 
+                            WHEN MAX(M.WIDTH)*25.4 < 500 THEN '0-0.50 m' 
+                            WHEN MAX(M.WIDTH)*25.4 < 1000 THEN '0.50 m-1 m'
+                            WHEN MAX(M.WIDTH)*25.4 < 3000 THEN '1-3 m'
+                            ELSE '3>m' 
+                        END 
+                    ELSE
+                        CASE 
+                            WHEN MAX(M.LENGTH)*25.4 < 500 THEN '0-0.50 m' 
+                            WHEN MAX(M.LENGTH)*25.4 < 1000 THEN '0.50 m-1 m'
+                            WHEN MAX(M.LENGTH)*25.4 < 3000 THEN '1-3 m'
+                            ELSE '3>m' 
+                        END
+                END
+            ELSE
+                CASE 
+                    WHEN MAX(M.WIDTH) > MAX(M.LENGTH) THEN 
+                        CASE 
+                            WHEN MAX(M.WIDTH) < 500 THEN '0-0.50 m' 
+                            WHEN MAX(M.WIDTH) < 1000 THEN '0.50 m-1 m'
+                            WHEN MAX(M.WIDTH) < 3000 THEN '1-3 m'
+                            ELSE '3>m' 
+                        END 
+                    ELSE
+                        CASE 
+                            WHEN MAX(M.LENGTH) < 500 THEN '0-0.50 m' 
+                            WHEN MAX(M.LENGTH) < 1000 THEN '0.50 m-1 m'
+                            WHEN MAX(M.LENGTH) < 3000 THEN '1-3 m'
+                            ELSE '3>m' 
+                        END
+                END
+        END AS EBATKATEGORI,
+        T.SINIFI AS URETIMTIPI
+    FROM #ATOLKONT AS T
+    INNER JOIN #PARTS P ON T.PARCANO = P.PARTNO
+    LEFT JOIN #MATERIAL AS M ON T.PARCANO = M.PARTNO
+    LEFT JOIN EPLN.MATERIALCATALOG MC ON M.MCRECORDNO = MC.MCRECORDNO 
+    LEFT JOIN #PARTTOOLS AS TOOL ON T.PARCANO = TOOL.PARTNO
+    LEFT JOIN MAINPART MP ON T.SINIFI = MP.URETIMTIPI
+    INNER JOIN #ROTA AS ROTA ON T.PARCANO = ROTA.PARTNO
+    WHERE MP.URETIMTIPI IS NOT NULL
+    GROUP BY T.PARCANO, ROTA.PARTREV, ROTA.ROTA, TOOL.TOOLVARYOK, MC.NOMENCLATURE, T.SINIFI, M.UOM, T.PROJE, MP.URETIMTIPI, MP.TOOLVARYOK
+)
+
+SELECT NL.*
+FROM NEWLIST NL
+INNER JOIN MAINPART MP ON 
+    MP.EBATKATEGORI = NL.EBATKATEGORI 
+    AND MP.URETIMTIPI = NL.URETIMTIPI 
+    AND MP.TOOLVARYOK = NL.TOOLVARYOK 
+    AND MP.MALZEMETIPI = NL.MALZEMETIPI
+        """
+        df_part_details = query_with_parts(material_nos, sql_part_details)
+
+        # === 3) Cost Center Excel: yalnız gerekli kolonlar + dtype
+        self.data_label_2.config(text = "Parça listesi için maliyet merkezi verileri çekiliyor...")
+        excel_path = r"C:\Users\A11003\Desktop\SQL_data.xlsx"
+        cc_cols = ["ADC","CMP","CNV","CPM","EKL","HCC","HRN","NC2","NC1",
+                   "OTY","PNT","PPC","QAA","QAL","SAS","SM2","SMT","TDP","TMN","YDD","YME","YPM"]
+        df_cost_center_all = pd.read_excel(excel_path, dtype={'PARCA_NO':'string'})
+        # sadece gerekli kolonlar
+        keep_cols = ["PARCA_NO"] + cc_cols
+        df_cost_center_all = df_cost_center_all[keep_cols]
+        df_cost_center = df_cost_center_all.set_index("PARCA_NO")
+        # PARTNO sırasına göre hizala
+        part_list2 = df_part_details['PARTNO'].astype(str).tolist()
+        cc_pulled = df_cost_center.reindex(part_list2)[cc_cols]
+
+        # === 4) Y49 / NC referanslarını çek
+        sql_y49_tc = """
+           SELECT DISTINCT STRING_AGG(TRIM(K.IS_MERKEZI),':') Y49TC
+            FROM ERP.KAPASITE K 
+                WHERE K.DEPT_HOME LIKE '%Y49%'
+        """
+        df_y49_tc = connection_conf(sql_y49_tc)
+
+        sql_nc_tc = """
+           SELECT DISTINCT CONCAT('905:958:91A:91B:91C:91D:961:993:933:',STRING_AGG(TRIM(K.IS_MERKEZI),':')) AS Y4BTC
+            FROM ERP.KAPASITE K 
+            WHERE K.DEPT_HOME LIKE '%Y4B%'
+        """
+        df_nc_tc = connection_conf(sql_nc_tc)
+
+        # === 5) Rota düzeltmesi ve benzersiz liste
+        rota_series = df_part_details["ROTA"].astype(str).str.replace(":PC2:022", "", regex=False)
+        unique_rotas = rota_series.drop_duplicates().tolist()
+
+        # Toplu Y49/NC hesap
+        y49_map = y49check_unique(unique_rotas, df_y49_tc)
+        nc_map  = nccheck_unique(unique_rotas, df_nc_tc)
+
+        # === 6) Kod çözümü + export dataframe inşası
+        df_part_details = df_part_details.copy()
+        df_part_details["CODE"] = ""
+        df_part_details["ROTA_CLEAN"] = rota_series
+
+        export_rows = []
+        indeksi = 0
+
+        # Tipler
+        size_series = df_part_details["EBATKATEGORI"].astype('string')
+        tool_series = df_part_details["TOOLVARYOK"].astype('string')
+        material_series = df_part_details["MALZEMETIPI"].astype('string')
+        part_series = df_part_details["PARTNO"].astype('string')
+
+        # küçük cache (aynı kombinasyon gelirse)
+        rota_cache = {}
+
+        for i in range(len(df_part_details)):
+            rotay = df_part_details.at[df_part_details.index[i], "ROTA_CLEAN"]
+            material_no = part_series.iat[i]
+            size = size_series.iat[i]
+            tool = tool_series.iat[i]
+            material = material_series.iat[i]
+
+            y49statu = y49_map.get(rotay, "H")
+            ncstatu  = nc_map.get(rotay, "H")
+
+            cache_key = (rotay, y49statu, ncstatu, material_no)
+            if cache_key in rota_cache:
+                kod = rota_cache[cache_key]
+            else:
+                try:
+                    kod = rota_bul(rotay, y49statu, ncstatu, material_no)[0] or "???"
+                    # malzeme düzeltmeleri
+                    if kod == "Kaynak" and (material in {"None","N/A", None}):
+                        material = "Sert Malzemeler"
+                    if kod == "Metalik" and material == "TUNGSTEN":
+                        material = "Titanyum"
+                    if kod == "Metalik" and material == "NICKEL":
+                        material = "Sert Malzemeler"
+                except:
+                    kod = "???"
+                rota_cache[cache_key] = kod
+
+            df_part_details.at[df_part_details.index[i], "CODE"] = kod
+
+            # cost center satırı (tek seferde hizalanmış tablodan)
+            pn = material_no
+            if pn in cc_pulled.index:
+                row = cc_pulled.loc[pn]
+                if isinstance(row, pd.Series):
+                    vals = row.where(pd.notna(row), other="???").astype(str)
+                else:
+                    # duplicate index safety
+                    row = row.iloc[0]
+                    vals = row.where(pd.notna(row), other="???").astype(str)
+            else:
+                vals = pd.Series({k:"???" for k in cc_cols})
+
+            indeksi += 1
+            export_rows.append([
+                indeksi, material_no, size, material, tool, kod,
+                vals.get("ADC","???"), vals.get("CMP","???"), vals.get("CNV","???"), vals.get("CPM","???"),
+                vals.get("EKL","???"), vals.get("HCC","???"), vals.get("HRN","???"),
+                vals.get("NC2","???"), vals.get("NC1","???"), vals.get("OTY","???"),
+                vals.get("PNT","???"), vals.get("PPC","???"), vals.get("QAA","???"), vals.get("QAL","???"),
+                vals.get("SAS","???"), vals.get("SM2","???"), vals.get("SMT","???"),
+                vals.get("TDP","???"), vals.get("TMN","???"), vals.get("YDD","???"), vals.get("YME","???"), vals.get("YPM","???"),
+                rotay
+            ])
+
+        # === 7) Export DF + filtre + dtype
+        cols_export = [
+            'indis','material_no','size','material','tool','kod',
+            'adc','cmp','cnv','cpm','ekl','hcc','hrn','nc2','nc1','oty','pnt','ppc','qaa','qal','sas','sm2','smt','tdp','tmn','ydd','yme','ypm','rota'
+        ]
+        df_export = pd.DataFrame(export_rows, columns=cols_export)
+
+        # df_part_details kaydı
+        df_part_details.drop(columns=["ROTA_CLEAN"], inplace=True)
+        df_part_details.to_excel("df_part_details.xlsx", index=False)
+
+        # Referans filtresi
+        cols_ref = ['EBATKATEGORI','MALZEMETIPI','TOOLVARYOK','CODE']
+        reference_df = df_part_details[df_part_details['PARTNO'].isin(material_nos)][cols_ref].drop_duplicates()
+        df_x = df_part_details.merge(reference_df, on=cols_ref, how='inner')
+        filtered_partnos = set(df_x['PARTNO'])
+
+        df_export = df_export[df_export['material_no'].isin(filtered_partnos)].copy()
+
+        # Numeric cast (float32 ile bellek yarı yarıya)
+        numeric_cols = ['adc','cmp','cnv','cpm','ekl','hcc','hrn','nc2','nc1','oty','pnt','ppc','qaa','qal','sas','sm2','smt','tdp','tmn','ydd','yme','ypm']
+        df_export.loc[:, numeric_cols] = df_export[numeric_cols].apply(pd.to_numeric, errors='coerce').astype('float32')
+
+        # Ortalama sayfası
+        # kategorik kolonları category yap
+        for c in ['size','material','tool','kod']:
+            df_export[c] = df_export[c].astype('category')
+        df_grouped = df_export.groupby(['size','material','tool','kod'], observed=True)[numeric_cols].mean().reset_index()
+
+        # === 8) Tek seferde yazım
+        with pd.ExcelWriter("dfxxx.xlsx", engine="xlsxwriter", options={'strings_to_numbers': True}) as writer:
+            df_export.to_excel(writer, sheet_name="Detay", index=False)
+            df_grouped.to_excel(writer, sheet_name="Ortalama", index=False)
+
+        self.show_detay_data(df_export)
+        self.data_label_2.config(text = "Y5A90 - Kapasite Değerlendirme ve İş Analitiği")
+
+        print(f"Tam akış süresi: {time.time()-t0:.2f} sn")
+
+    def export_results(self):
+        file_path = filedialog.asksaveasfilename(defaultextension=".xlsx")
+        if file_path:
+            columns = ["ID","Parça","Boyut", "Malzeme", "Takım", "Rota Kodu","CMP","CNV","CPM","NC1","NC2","NC4","NC5","NC6","PNT","SAS","SM2","SMT", "Diğer","Rota"]
+            rows = []
+            for item in self.results_table.get_children():
+                row = []
+                for column in columns:
+                    row.append(self.results_table.item(item)["values"][columns.index(column)])
+                rows.append(row)
+            df = pd.DataFrame(rows, columns=columns)
+            df.to_excel(file_path, index=False)
+
+
+##The Base64 icon version as a string
+icon = \
+""" 
+AAABAAMAMDAAAAEAIACoJQAANgAAACAgAAABACAAqBAAAN4lAAAQEAAAAQAgAGgEAACGNgAAKAAAADAAAABgAAAAAQAgAAAAAAAAJAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAkHOwVJBzsIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAkHOwiJBzsXwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAkHOwhJBzspCQc7BEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAkHOwcJBzszyQc7EEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAkHOwZJBzs3SQc7IoAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAkHOwXJBzs2iQc7M8kHOwUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAkHOwVJBzs1iQc7PgkHOxIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAkHOwTJBzs0iQc7P8kHOyRAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAkHOwSJBzszyQc7P8kHOzTJBzsGQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAkHOwQJBzszSQc7P8kHOz5JBzsUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAkHOwOJBzsyiQc7P8kHOz/JBzsmyQc7AEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAkHOwNJBzsxyQc7P8kHOz/JBzs2iQc7B4AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAkHOwLJBzsxCQc7P8kHOz/JBzs+yQc7FkAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAkHOwKJBzswCQc7P8kHOz/JBzs/yQc7KUkHOwEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAkHOwIJBzsvSQc7P8kHOz/JBzs/yQc7OIkHOwnAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAkHOwHJBzsuiQc7P8kHOz/JBzs/yQc7P4kHOxqAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAkHOwGJBzstyQc7P8kHOz/JBzs/yQc7P8kHOy3JBzsCgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAkHOwFJBzssyQc7P8kHOz/JBzs/yQc7P8kHOzsJBzsNQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAkHOwEJBzssCQc7P8kHOz/JBzs/yQc7P8kHOz/JBzseAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAkHOwDJBzsrSQc7P8kHOz/JBzs/yQc7P8kHOz/JBzsuiQc7AoAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAkHOwCJBzsqSQc7P8kHOz/JBzs/yQc7P8kHOz/JBzs6iQc7DAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAkHOwBJBzspSQc7P8kHOz/JBzs/yQc7P8kHOz/JBzs/yQc7G0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAkHOwBJBzsoiQc7P8kHOz/JBzs/yQc7P8kHOz/JBzs/yQc7LQkHOwIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAJBzsniQc7P8kHOz/JBzs/yQc7P8kHOz/JBzs/yQc7OgkHOwuAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAJBzsmiQc7P8kHOz/JBzs/yQc7P8kHOz/JBzs/yQc7P8kHOxvAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAJBzslyQc7P8kHOz/JBzs/yQc7P8kHOz/JBzs/yQc7P8kHOy3JBzsCQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAJBzsjyQc7P8kHOz/JBzs/yQc7P8kHOz/JBzs/yQc7P8kHOzqJBzsMQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAJBzsLiQc7LckHOz8JBzs/yQc7P8kHOz/JBzs/yQc7P8kHOz/JBzscwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACQc7BIkHOx/JBzs7CQc7P8kHOz/JBzs/yQc7P8kHOz/JBzsuiQc7AoAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAkHOwDJBzsRiQc7MkkHOz+JBzs/yQc7P8kHOz/JBzs7CQc7DQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACQc7B0kHOyVJBzs9CQc7P8kHOz/JBzs/yQc7HcAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAkHOwHJBzsWiQc7NkkHOz/JBzs/yQc7L0kHOwMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACR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
+"""
+icondata= base64.b64decode(icon)
+## The temp file is icon.ico
+tempFile= "icon.ico"
+iconfile= open(tempFile,"wb")
+## Extract the icon
+iconfile.write(icondata)
+iconfile.close()
+window = tk.Tk()
+window.wm_iconbitmap(tempFile)
+## Delete the tempfile
+os.remove(tempFile)
+
+#window.wm_attributes('-transparentcolor','white')
+
+gui = MaterialGUI(window)
+window.mainloop()
